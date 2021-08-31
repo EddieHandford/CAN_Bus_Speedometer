@@ -12,6 +12,10 @@
 
 #include "led_setup.h"
 
+
+#include <CAN.h>
+
+
 // Which pin on the Arduino is connected to the NeoPixels?
 // On a Trinket or Gemma we suggest changing this to 1:
 #define LED_PIN     14
@@ -153,6 +157,18 @@ void setup() {
 
 /* ------------------ End of Setuping up LED ------------------*/
 
+
+
+
+CAN.begin(500E3);
+  // start the CAN bus at 500 kbps
+
+  //blocking function if can does not start
+  if (!CAN.begin(500E3)) {
+    //Serial.println("Starting CAN failed!");
+    while (1);
+  }
+
 }
 
 
@@ -163,19 +179,142 @@ void setup() {
 
 void loop() {
  
+float f;
+float y_axis;
 
-// displays_show(reading_0 , reading_1);
+  int packetSize = CAN.parsePacket();
 
 
- for( int i = 0; i<=1000; i++) {
-   displays_show(i , i);
-   delay(1);
- }
+  if (packetSize) {
+    if (CAN.packetExtended()) {
+    }
 
- for( int i = 1000; i>0; i--) {
-   displays_show(i , i);
-   delay(1);
- }
+    if (CAN.packetRtr()) {
+    }
+
+//  hcan.pTxMsg->ExtId = 0x058C4430; // Left (when looking from behind the wing) x-axis (small axis) pot
+//  hcan.pTxMsg->ExtId = 0x058C8430; // Left y-axis pot
+//  hcan.pTxMsg->ExtId = 0x058CC430; // Left loadcell
+//  hcan.pTxMsg->ExtId = 0x058D0430; // Right x-axis pot
+//  hcan.pTxMsg->ExtId = 0x058D4430; // Right y-axis pot
+//  hcan.pTxMsg->ExtId = 0x058D8430; // Right loadcell
+
+    int ID = CAN.packetId();
+    
+
+    //Right Load cell
+    if (ID == 93160496){
+      if (CAN.packetRtr()) {
+      } else {
+        Serial.print(" and length ");
+        Serial.println(packetSize);
+        while (CAN.available()) {
+         byte A = CAN.read();
+          byte B = CAN.read();
+          byte C = CAN.read();
+          byte D = CAN.read();
+          uint8_t bytes[4] = { A , B , C , D };
+          static_assert(sizeof(float) ==4,"float is 4 bytes" ) ; 
+        
+          memcpy (&f , bytes , 4);
+        
+        }
+      }
+    }
+    
+    //Right Y axis
+    if (ID == 93144112){
+      if (CAN.packetRtr()) {
+      } else {
+        Serial.print(" and length ");
+        Serial.println(packetSize);
+      while (CAN.available()) {
+        byte Y_axis_A = CAN.read();
+        byte Y_axis_B = CAN.read();
+        byte Y_axis_C = CAN.read();
+        byte Y_axis_D = CAN.read();
+        uint8_t bytes[4] = { Y_axis_A , Y_axis_B , Y_axis_C , Y_axis_D };
+        static_assert(sizeof(float) ==4,"float is 4 bytes" ) ; 
+        memcpy (&y_axis , bytes , 4);
+
+        //-266 is full down , as wing rotates value increases
+        }
+      }
+    }
+  }
+
+//load cell value massaging
+int xx = (int) f;
+xx = constrain(xx , 0 , 100);
+int xx_mapped = map(xx, 0 , 100 , 0 , 1000);
+
+
+//Y axis value massaging
+y_axis = constrain(y_axis , -280 , 360);
+y_axis = y_axis + 265.0;
+int y_axis_int = (int) y_axis;
+int y_axis_int_mapped = map(y_axis_int , -15 , 170 , 0 , 1000 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ displays_show(y_axis_int_mapped , xx_mapped);
+
+
+//  for( int i = 0; i<=1000; i++) {
+//    displays_show(i , i);
+//    delay(1);
+//  }
+
+//  for( int i = 1000; i>0; i--) {
+//    displays_show(i , i);
+//    delay(1);
+//  }
 
 
 }
